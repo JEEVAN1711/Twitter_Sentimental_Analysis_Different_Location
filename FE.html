@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Country Sentiment Analysis</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background-color: #f4f6f8;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    header {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px;
+    }
+    h1 {
+      font-size: 2em;
+      margin: 0;
+    }
+    select, button {
+      margin: 20px;
+      padding: 10px;
+      font-size: 1.1em;
+      cursor: pointer;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+    select {
+      background-color: #fff;
+    }
+    button {
+      background-color: #008CBA;
+      color: white;
+      border: none;
+    }
+    button:hover {
+      background-color: #006F8C;
+    }
+    #chartContainer {
+      margin-top: 30px;
+    }
+    #error {
+      color: red;
+      margin-top: 20px;
+      font-size: 1.1em;
+    }
+    #timeRemaining {
+      color: #FF8C00;
+      font-size: 1.3em;
+      margin-top: 20px;
+    }
+    .countdown-timer {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #FF6347;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sentiment Analysis for Country</h1>
+  </header>
+  
+  <div>
+    <select id="countrySelect">
+      <option value="India">India</option>
+      <option value="USA">USA</option>
+      <option value="Canada">Canada</option>
+      <option value="Japan">Japan</option>
+      <option value="Germany">Germany</option>
+    </select>
+    <button onclick="fetchSentiment()">Analyze Tweets</button>
+  </div>
+
+  <div id="chartContainer">
+    <!-- Chart image will be displayed here -->
+  </div>
+
+  <div id="error"></div>
+  <div id="timeRemaining" class="countdown-timer">
+    <!-- Countdown timer will be displayed here -->
+  </div>
+
+  <script>
+    let lastRequestTime = null; // Track the last request time (from the backend)
+    let timerInterval = null;
+    
+    // Function to start the countdown timer and update every second
+    function startCountdown(timeRemaining) {
+      clearInterval(timerInterval);  // Clear any existing intervals
+      const endTime = Date.now() + timeRemaining * 1000;
+      
+      timerInterval = setInterval(() => {
+        const remainingTime = endTime - Date.now();
+        if (remainingTime <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById("timeRemaining").textContent = "You can now make a request!";
+        } else {
+          const minutes = Math.floor(remainingTime / 60000);
+          const seconds = Math.floor((remainingTime % 60000) / 1000);
+          document.getElementById("timeRemaining").textContent = `Next request in: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        }
+      }, 1000);
+    }
+
+    async function fetchSentiment() {
+      const country = document.getElementById("countrySelect").value;
+      const response = await fetch(`http://127.0.0.1:5000/analyze?country=${country}`);
+
+      const errorDiv = document.getElementById("error");
+      const timeRemainingDiv = document.getElementById("timeRemaining");
+      errorDiv.textContent = ""; // Clear any previous error
+      timeRemainingDiv.textContent = ""; // Clear any previous time info
+
+      if (response.ok) {
+        const imageBlob = await response.blob();
+        const imageUrl = URL.createObjectURL(imageBlob);
+        document.getElementById("chartContainer").innerHTML = `<img src="${imageUrl}" alt="Sentiment Analysis Chart" />`;
+
+        // Record the time of successful request
+        lastRequestTime = Date.now();
+        clearInterval(timerInterval); // Stop the countdown
+        timeRemainingDiv.textContent = "You can now make a request!";
+      } else {
+        const data = await response.json();
+        if (data.error) {
+          errorDiv.textContent = data.error;
+        }
+        if (data.time_remaining) {
+          // Start the countdown if the rate limit is reached
+          startCountdown(data.time_remaining);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
